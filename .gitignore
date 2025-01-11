@@ -32,3 +32,10 @@ wheels/
 *.swp
 *.swo
 .DS_Store
+
+# Add to existing .gitignore
+.qiskit/
+qiskit.json
+
+# Never commit your API token!
+**/ibm_config.py
