@@ -7,6 +7,7 @@ from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister, transpile
 from qiskit_aer import Aer
 from qiskit.visualization import plot_histogram
 import matplotlib.pyplot as plt
+from qiskit_ibm_runtime import QiskitRuntimeService, Sampler, Session
 
 # -------------------------------------------------
 # 1) Classical GCD-based factor extraction
@@ -187,75 +188,47 @@ def find_period_from_phase(phase, n_count, tolerance=0.01):
     return convergents(fracs)
 
 
-def run_shor_on_77(a=2, n_count=8, shots=2048):  # Reduced parameters
+def run_shor_on_77(a=2, n_count=8, shots=2048, backend=None, service=None):
     """
-    Simplified Shor's implementation
+    Shor's implementation with IBM Runtime support
     """
     N = 77
     
     if math.gcd(a, N) != 1:
         print(f"Error: a={a} must be coprime with N={N}")
-        return
-    
-    # Print expected period
-    period = 1
-    current = a % N
-    sequence = [current]
-    while current != 1:
-        current = (current * a) % N
-        sequence.append(current)
-        period += 1
-    print(f"\nExpected period for a={a}: {period}")
-    print(f"Sequence: {sequence}")
-    
+        return None
+        
     qc = build_shor_circuit(a, N, n_count)
     
-    # Use basic simulator settings
-    backend = Aer.get_backend('aer_simulator')
-    
-    transpiled_qc = transpile(qc, backend, optimization_level=1)  # Reduced optimization
-    job = backend.run(transpiled_qc, shots=shots)
-    result = job.result()
-    counts = result.get_counts()
-    
-    # Show histogram
-    plot_histogram(counts)
-    plt.title(f"Shor's Algorithm (N=77, a={a})")
-    plt.show()
-    
-    # Analyze measurements
-    successful_factors = set()
-    print("\nAnalyzing measurements:")
-    
-    for bitstring, count in counts.items():
-        if count < shots * 0.01:
-            continue
-            
-        measured_decimal = int(bitstring, 2)
-        phase = measured_decimal / (2**n_count)
-        print(f"\nMeasurement: {bitstring}")
-        print(f"Phase: {phase:.6f}")
-        
-        # Try simple period candidates
-        for r in range(1, min(100, 2**n_count)):
-            if abs(r * phase - round(r * phase)) < 0.1:  # Look for near-integer relationships
-                possible_r = r
-                print(f"Possible period: {possible_r}")
-                
-                # Verify
-                if pow(a, possible_r, N) == 1:
-                    print(f"Valid period found: {possible_r}")
-                    f1, f2 = get_factor_from_period(a, N, possible_r)
-                    if f1 is not None and f2 is not None:
-                        if 1 < f1 < N and 1 < f2 < N:
-                            successful_factors.add(tuple(sorted([f1, f2])))
-
-    if successful_factors:
-        print("\nFound factors of 77:")
-        for f1, f2 in successful_factors:
-            print(f"77 = {f1} × {f2}")
+    # Use provided backend+service or default to local simulator
+    if backend is None or service is None:
+        from qiskit_aer import Aer
+        simulator = Aer.get_backend('aer_simulator')
+        return simulator.run(transpile(qc, simulator), shots=shots)
     else:
-        print("\nNo factors found. Try different parameters.")
+        # Use IBM Runtime with Session and Sampler (older API style)
+        with Session(backend=backend) as session:
+            # Create sampler without session parameter
+            sampler = Sampler()  # Removed session parameter
+            compiled_qc = transpile(qc, backend)
+            job = sampler.run([compiled_qc], shots=shots)
+            return job
+
+
+def process_results(job):
+    """
+    Process results from either simulator or Sampler
+    """
+    result = job.result()
+    
+    # Check if this is a Sampler result
+    if hasattr(result, 'quasi_dists'):
+        from qiskit.utils.mitigation import quasi_to_counts
+        counts = quasi_to_counts(result.quasi_dists[0])
+    else:
+        counts = result.get_counts()
+    
+    return counts
 
 
 # -------------------------------------------------

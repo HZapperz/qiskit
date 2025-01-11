@@ -1,16 +1,52 @@
-from qiskit_ibm_runtime import QiskitRuntimeService
+from qiskit_ibm_runtime import QiskitRuntimeService, Sampler, Session, RuntimeJob
 import time
-from script import run_shor_on_77  # Import your existing function
+from script import run_shor_on_77, process_results  # Import process_results too
 from ibm_config import IBM_TOKEN  # Import token from config file
 
 def manual_job_monitor(job):
     """
     Monitor job status with manual polling
     """
-    while not job.status().is_final():
-        print(f"Job status: {job.status()}")
-        time.sleep(5)
-    print(f"Job finished with status: {job.status()}")
+    try:
+        # Check if job is a RuntimeJob
+        if isinstance(job, RuntimeJob):
+            while not job.status().is_final():
+                print(f"Job status: {job.status()}")
+                time.sleep(5)
+            print(f"Job finished with status: {job.status()}")
+            
+            # Get and process results
+            result = job.result()
+            
+            # Process the sampler results
+            if hasattr(result, 'quasi_dists'):
+                print("\nQuasi-probability distribution:")
+                quasi_dist = result.quasi_dists[0]
+                print(quasi_dist)
+                
+                # Convert to approximate counts
+                shots = 2048  # or get this from the job configuration
+                counts = {k: int(v * shots) for k, v in quasi_dist.items()}
+                print("\nApproximate counts:")
+                print(counts)
+                
+                # Plot the results
+                try:
+                    from qiskit.visualization import plot_histogram
+                    import matplotlib.pyplot as plt
+                    plot_histogram(counts)
+                    plt.show()
+                except Exception as e:
+                    print(f"Couldn't plot histogram: {str(e)}")
+            else:
+                print("\nRaw result:")
+                print(result)
+                
+        else:
+            print(f"Job ID: {job}")
+            print("Job submitted successfully")
+    except Exception as e:
+        print(f"Error monitoring job: {str(e)}")
 
 def setup_ibmq(token):
     """
@@ -39,9 +75,12 @@ def run_on_ibmq(service, backend_name='ibm_brisbane'):
             print(f"Trying with a = {a} on {backend.name}")
             print('='*60)
             
-            # Just pass the 'a' value since run_shor_on_77 doesn't accept backend
-            job = run_shor_on_77(a=a)
-            manual_job_monitor(job)
+            # Pass both backend and service to run_shor_on_77
+            job = run_shor_on_77(a=a, backend=backend, service=service)
+            if job is not None:
+                manual_job_monitor(job)
+            else:
+                print("Failed to create job")
             
     except Exception as e:
         print(f"Error: {str(e)}")
