@@ -1,6 +1,6 @@
 from qiskit_ibm_runtime import QiskitRuntimeService, Sampler, Session, RuntimeJob
 import time
-from script import run_shor_on_77, process_results  # Import process_results too
+from script import run_shor_on_77, process_primitive_result  # Import process_results too
 from ibm_config import IBM_TOKEN  # Import token from config file
 
 def manual_job_monitor(job):

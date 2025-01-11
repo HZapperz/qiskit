@@ -71,9 +71,9 @@ def get_job_results(job_id):
 if __name__ == "__main__":
     # Use the job IDs from your recent jobs that are DONE
     job_ids = [
-        'cy18hhpcw2k0008jegkg',  # DONE
-        'cy18hgpnrmz0008549v0',  # DONE
-        'cy18fyz01rbg008hryhg'   # DONE
+        'cy1cqvz6vek0008raas0',  # QUEUED
+        'cy1cqt701rbg008hs2zg',  # QUEUED
+        'cy1cqrq9b62g008h6er0'   # QUEUED
     ]
     
     # First, let's list recent jobs
